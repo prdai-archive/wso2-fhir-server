@@ -11,6 +11,10 @@
   },
   "impls": [
     {
+      "id": "wso2-fhir-server",
+      "label": "Wso2-fhir-server"
+    },
+    {
       "id": "fhir-candle",
       "label": "Fhir-candle"
     },
@@ -25,10 +29,6 @@
     {
       "id": "msfhir",
       "label": "Msfhir"
-    },
-    {
-      "id": "wso2-fhir-server",
-      "label": "Wso2-fhir-server"
     }
   ],
   "modules": [
