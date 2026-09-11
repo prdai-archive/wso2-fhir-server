@@ -1,0 +1,22 @@
+{
+  "runs": [
+    {
+      "id": "run-2026-09-11-055939",
+      "startedAt": "2026-09-11T05:59:39.547Z",
+      "duration_ms": 190522,
+      "commit": "f8b475f",
+      "commitMessage": "docs: link wso2 fhir server in readme",
+      "branch": "main",
+      "impls": [
+        "fhir-candle",
+        "hapi",
+        "medplum",
+        "msfhir",
+        "wso2-fhir-server"
+      ],
+      "pass": 4611,
+      "fail": 3249,
+      "skipped": 0
+    }
+  ]
+}
