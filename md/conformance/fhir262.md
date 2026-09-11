@@ -13,7 +13,7 @@ from the repository's **Actions** tab when a refreshed result is needed.
 
 <iframe
   title="FHIR262 conformance report"
-  src="/fhir-server/fhir262/"
+  src="../../../fhir262/"
   style={{border: 0, height: '80vh', width: '100%'}}
 />
 
