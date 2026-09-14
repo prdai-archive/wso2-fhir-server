@@ -22,19 +22,35 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: npm
           cache-dependency-path: website/package-lock.json
+      - name: Restore conformance report
+        shell: bash
+        run: |
+          REPORT_DIR=website/static/docs/conformance/fhir262/app
+          mkdir -p "$REPORT_DIR" /tmp/fhir262-restore
+          git fetch origin gh-pages || exit 0
+          for candidate in docs/conformance/fhir262/app fhir262; do
+            if git cat-file -e "origin/gh-pages:$candidate/runs/index.json" 2>/dev/null; then
+              git archive "origin/gh-pages" "$candidate" | tar -x -C /tmp/fhir262-restore
+              cp -a "/tmp/fhir262-restore/$candidate/." "$REPORT_DIR/"
+              break
+            fi
+          done
       - name: Install dependencies
         run: npm ci
         working-directory: website
       - name: Build documentation
         run: npm run build
         working-directory: website
+        env:
+          DOCUSAURUS_URL: https://${{ github.repository_owner }}.github.io
+          DOCUSAURUS_BASE_URL: /${{ github.event.repository.name }}/
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@329bcc8f12caed2cefe5a5b80781499a6f3b361b # v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: website/build

@@ -5,8 +5,8 @@ import {themes as prismThemes} from 'prism-react-renderer';
 const config: Config = {
   title: 'WSO2 FHIR Server',
   tagline: 'A production-oriented FHIR R4 REST server built in Go and backed by PostgreSQL',
-  url: 'https://wso2.github.io',
-  baseUrl: '/fhir-server/',
+  url: process.env.DOCUSAURUS_URL ?? 'https://wso2.github.io',
+  baseUrl: process.env.DOCUSAURUS_BASE_URL ?? '/fhir-server/',
   organizationName: 'wso2',
   projectName: 'fhir-server',
   onBrokenLinks: 'throw',

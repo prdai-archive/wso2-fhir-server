@@ -50,6 +50,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'conformance/implementation-guides',
         'conformance/validation',
+        'conformance/fhir262',
         'conformance/terminology',
         'conformance/resource-types',
       ],

@@ -1,0 +1,88 @@
+name: Publish FHIR262 conformance report
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docs-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - name: Restore report history
+        shell: bash
+        run: |
+          REPORT_DIR=website/static/docs/conformance/fhir262/app
+          mkdir -p "$REPORT_DIR" /tmp/fhir262-restore
+          git fetch origin gh-pages || exit 0
+          for candidate in docs/conformance/fhir262/app fhir262; do
+            if git cat-file -e "origin/gh-pages:$candidate/runs/index.json" 2>/dev/null; then
+              git archive "origin/gh-pages" "$candidate" | tar -x -C /tmp/fhir262-restore
+              cp -a "/tmp/fhir262-restore/$candidate/." "$REPORT_DIR/"
+              break
+            fi
+          done
+      - name: Checkout FHIR262 suite
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: prdai-archive/fhir262
+          ref: 05e3e7c3703065a2a359dcbd6581bcb9bede62b0
+          path: .fhir262
+          persist-credentials: false
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+      - name: Install FHIR262 dependencies
+        run: bun install --frozen-lockfile
+        working-directory: .fhir262
+      - name: Run publicly accessible FHIR262 conformance suites
+        shell: bash
+        run: |
+          set +e
+          make -k test-wso2-fhir-server test-hapi test-medplum test-msfhir test-fhir-candle
+          set -e
+          for implementation in wso2-fhir-server hapi medplum msfhir fhir-candle; do
+            test -s ".results/$implementation.json"
+          done
+          exit 0
+        working-directory: .fhir262
+      - name: Build FHIR262 report
+        run: |
+          mkdir -p dist/runs
+          if [ -d ../website/static/docs/conformance/fhir262/app/runs ]; then
+            cp -a ../website/static/docs/conformance/fhir262/app/runs/. dist/runs/
+          fi
+          bun bin/build.ts -results .results -dist dist
+        working-directory: .fhir262
+      - name: Include report in documentation site
+        run: |
+          mkdir -p website/static/docs/conformance/fhir262/app
+          cp -a .fhir262/dist/. website/static/docs/conformance/fhir262/app/
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Install documentation dependencies
+        run: npm ci
+        working-directory: website
+      - name: Build documentation
+        run: npm run build
+        working-directory: website
+        env:
+          DOCUSAURUS_URL: https://${{ github.repository_owner }}.github.io
+          DOCUSAURUS_BASE_URL: /${{ github.event.repository.name }}/
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@329bcc8f12caed2cefe5a5b80781499a6f3b361b # v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: website/build
