@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.10.2">
 <title data-rh="true">Operations | WSO2 FHIR Server</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:url" content="https://prdai-archive.github.io/wso2-fhir-server/docs/api/operations"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Operations | WSO2 FHIR Server"><meta data-rh="true" name="description" content="Reference for $validate, $everything, $lastn, $document, $convert, and the $meta family."><meta data-rh="true" property="og:description" content="Reference for $validate, $everything, $lastn, $document, $convert, and the $meta family."><link data-rh="true" rel="canonical" href="https://prdai-archive.github.io/wso2-fhir-server/docs/api/operations"><link data-rh="true" rel="alternate" href="https://prdai-archive.github.io/wso2-fhir-server/docs/api/operations" hreflang="en"><link data-rh="true" rel="alternate" href="https://prdai-archive.github.io/wso2-fhir-server/docs/api/operations" hreflang="x-default"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Operations","item":"https://prdai-archive.github.io/wso2-fhir-server/docs/api/operations"}]}</script><link rel="stylesheet" href="/wso2-fhir-server/assets/css/styles.0b74bcdf.css">
-<script src="/wso2-fhir-server/assets/js/runtime~main.7e0c705c.js" defer="defer"></script>
-<script src="/wso2-fhir-server/assets/js/main.8c10eb25.js" defer="defer"></script>
+<script src="/wso2-fhir-server/assets/js/runtime~main.4c8fc719.js" defer="defer"></script>
+<script src="/wso2-fhir-server/assets/js/main.08782a32.js" defer="defer"></script>
 </head>
 <body>
 <svg style="display: none;"><defs>
@@ -36,14 +36,16 @@ own <code>meta.profile</code>:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockTitle_OeMC">Request</div><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><div class="token-line" style="color:#393A34"><span class="token function" style="color:#d73a49">curl</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-sS</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-X</span><span class="token plain"> POST </span><span class="token string" style="color:#e3116c">&#x27;http://localhost:9090/fhir/r4/Patient/$validate?profile=http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient&#x27;</span><span class="token plain"> </span><span class="token punctuation" style="color:#393A34">\</span><span class="token plain"></span><br></div><div class="token-line" style="color:#393A34"><span class="token plain">  </span><span class="token parameter variable" style="color:#36acaa">-H</span><span class="token plain"> </span><span class="token string" style="color:#e3116c">&quot;Content-Type: application/fhir+json&quot;</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-d</span><span class="token plain"> @patient.json </span><span class="token operator" style="color:#393A34">|</span><span class="token plain"> jq</span><br></div></code></pre></div></div>
 <p>Behaviour worth knowing:</p>
 <ul>
-<li class="">The body must be the <strong>resource itself</strong>. A <code>Parameters</code> wrapper is not unwrapped: at type level it
-is rejected as a type mismatch, and at system level the <code>Parameters</code> resource is what gets
-validated. The <code>mode</code> parameter (<code>create</code>/<code>update</code>/<code>delete</code>) is not implemented.</li>
+<li class="">The body may be the <strong>resource itself</strong> or a <code>Parameters</code> envelope whose parameter named
+<code>resource</code> carries it — the envelope is unwrapped at every scope. An envelope without a
+<code>resource</code> parameter is rejected with <code>400 Bad Request</code>, except <code>mode=delete</code>, which returns
+a valid outcome without checking anything (deletes carry no resource to validate). Other
+<code>mode</code> values do not change what is validated.</li>
 <li class="">Only the first <code>?profile=</code> value is read.</li>
 <li class="">Profile resolution is <strong>soft-fail</strong>: a profile that is not loaded is skipped silently, so an
 unrecognised <code>?profile=</code> returns <code>200 OK</code> rather than an error. Confirm packages loaded with
 <a class="" href="/wso2-fhir-server/docs/api/capability-statement"><code>/metadata</code></a>.</li>
-<li class="">Base R4 validation is included unless <code>FHIR_BASE_VALIDATION=false</code>. FHIRPath <code>invariant</code> failures
+<li class="">Base R4 validation is included unless <code>FHIR_VALIDATION_BASE=false</code>. FHIRPath <code>invariant</code> failures
 are reported as warnings — see <a class="" href="/wso2-fhir-server/docs/conformance/validation">Validation</a>.</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="everything">$everything<a href="#everything" class="hash-link" aria-label="Direct link to $everything" title="Direct link to $everything" translate="no">​</a></h2>

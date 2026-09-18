@@ -20,13 +20,16 @@ To build the binary yourself, run against an existing PostgreSQL, or produce a c
 
 ## Start the stack
 
-Clone the repository and start the stack from its root:
+Download the Compose file into an empty directory and start the stack:
 
 ```bash
-git clone https://github.com/wso2/fhir-server.git
-cd fhir-server
+curl -LO https://raw.githubusercontent.com/wso2/fhir-server/main/docker-compose.yml
 docker compose up -d
 ```
+
+The stack pulls the latest released server image from
+[`ghcr.io/wso2/fhir-server`](https://github.com/wso2/fhir-server/pkgs/container/fhir-server)
+together with PostgreSQL — no clone and no local build required.
 
 `-d` runs the stack in the background so the same terminal can run the commands below. Use `docker compose logs -f` to follow the server output.
 

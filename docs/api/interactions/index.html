@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.10.2">
 <title data-rh="true">Interactions | WSO2 FHIR Server</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:url" content="https://prdai-archive.github.io/wso2-fhir-server/docs/api/interactions"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Interactions | WSO2 FHIR Server"><meta data-rh="true" name="description" content="Create, read, update, patch, delete, versioned read, history, and Bundles."><meta data-rh="true" property="og:description" content="Create, read, update, patch, delete, versioned read, history, and Bundles."><link data-rh="true" rel="canonical" href="https://prdai-archive.github.io/wso2-fhir-server/docs/api/interactions"><link data-rh="true" rel="alternate" href="https://prdai-archive.github.io/wso2-fhir-server/docs/api/interactions" hreflang="en"><link data-rh="true" rel="alternate" href="https://prdai-archive.github.io/wso2-fhir-server/docs/api/interactions" hreflang="x-default"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Interactions","item":"https://prdai-archive.github.io/wso2-fhir-server/docs/api/interactions"}]}</script><link rel="stylesheet" href="/wso2-fhir-server/assets/css/styles.0b74bcdf.css">
-<script src="/wso2-fhir-server/assets/js/runtime~main.7e0c705c.js" defer="defer"></script>
-<script src="/wso2-fhir-server/assets/js/main.8c10eb25.js" defer="defer"></script>
+<script src="/wso2-fhir-server/assets/js/runtime~main.4c8fc719.js" defer="defer"></script>
+<script src="/wso2-fhir-server/assets/js/main.08782a32.js" defer="defer"></script>
 </head>
 <body>
 <svg style="display: none;"><defs>
@@ -53,8 +53,10 @@ FHIR servers and works for both reads and writes:</p>
 <li class=""><code>If-Match</code> is optional but recommended — see
 <a class="" href="/wso2-fhir-server/docs/api/conditional#optimistic-locking-with-if-match">optimistic locking</a>.</li>
 <li class="">A body <code>id</code> that disagrees with the URL is rejected with <code>400 Bad Request</code>.</li>
-<li class=""><code>PUT</code> to an id that does not exist returns <code>404 Not Found</code>. The server does <strong>not</strong> do
-update-as-create, and advertises <code>updateCreate: false</code>.</li>
+<li class=""><code>PUT</code> to an id that does not exist <strong>creates</strong> the resource at that id and returns
+<code>201 Created</code> (update-as-create). The server advertises <code>updateCreate: true</code>. The one
+exception: when the request carries an <code>If-Match</code> header, a missing resource returns
+<code>404 Not Found</code> instead of being created.</li>
 <li class=""><code>PUT</code> to a <em>deleted</em> id restores the resource at a new version.</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="patch">Patch<a href="#patch" class="hash-link" aria-label="Direct link to Patch" title="Direct link to Patch" translate="no">​</a></h2>
