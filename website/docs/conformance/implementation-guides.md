@@ -30,6 +30,8 @@ export IG_REGISTRY_URL="https://packages.fhir.org"
 
 Package entries may use `name@version` or a direct `.tgz` URL.
 
+With `cacheDir` on a shared volume — for example a `ReadWriteMany` PVC mounted by several replicas — concurrent writers are safe: each package is written to a temporary file in the same directory and renamed into place, so a replica never reads a partially written file. A cached file that fails an integrity check is discarded and re-downloaded, which also repairs a cache left corrupt by an earlier interrupted write.
+
 ## Startup behavior
 
 For each configured package, the loader:

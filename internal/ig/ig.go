@@ -41,6 +41,10 @@
 // CacheDir/name-version.tgz. On subsequent calls the cached file is used
 // instead of re-downloading, which makes container restarts fast even
 // before the ig_packages DB check fires.
+//
+// Writes are atomic (temp file + rename) so replicas sharing the directory
+// never read a partially written file, and a cached file that fails an
+// integrity check is discarded and re-downloaded.
 package ig
 
 import (
@@ -321,10 +325,9 @@ func fetchURL(url, name, version string, opts LoadOptions) ([]byte, error) {
 		}
 	}
 
-	// Serve from cache if available
+	// Serve from cache if available and intact
 	if cachePath != "" {
-		if data, err := os.ReadFile(cachePath); err == nil {
-			slog.Debug("serving IG from cache", "path", cachePath)
+		if data, err := readCache(cachePath); err == nil {
 			return data, nil
 		}
 	}
@@ -336,7 +339,7 @@ func fetchURL(url, name, version string, opts LoadOptions) ([]byte, error) {
 
 	// Write to cache (best-effort)
 	if cachePath != "" {
-		if werr := os.WriteFile(cachePath, data, 0o644); werr != nil {
+		if werr := writeCache(cachePath, data); werr != nil {
 			slog.Warn("failed to write IG cache", "path", cachePath, "err", werr)
 		} else {
 			slog.Debug("cached IG package", "path", cachePath)
@@ -344,6 +347,87 @@ func fetchURL(url, name, version string, opts LoadOptions) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+// readCache returns the cached package if present and intact. A file that fails
+// the integrity check is discarded so the next call re-downloads it, which
+// repairs a cache left corrupt by an interrupted or concurrent write.
+func readCache(cachePath string) ([]byte, error) {
+	data, err := os.ReadFile(cachePath)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateTgz(data); err != nil {
+		slog.Warn("discarding corrupt IG cache", "path", cachePath, "err", err)
+		if rerr := os.Remove(cachePath); rerr != nil && !os.IsNotExist(rerr) {
+			slog.Warn("failed to remove corrupt IG cache", "path", cachePath, "err", rerr)
+		}
+		return nil, err
+	}
+	slog.Debug("serving IG from cache", "path", cachePath)
+	return data, nil
+}
+
+// writeCache writes data to cachePath atomically: a unique temp file in the same
+// directory is written, synced, and renamed over the target, so replicas sharing
+// the cache directory never observe a partially written package.
+func writeCache(cachePath string, data []byte) error {
+	f, err := os.CreateTemp(filepath.Dir(cachePath), ".fhir-ig-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		os.Remove(tmp)
+		return err
+	}
+	if err := f.Chmod(0o644); err != nil {
+		f.Close()
+		os.Remove(tmp)
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		os.Remove(tmp)
+		return err
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, cachePath); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+// validateTgz reads the whole gzip stream and every tar entry, so a package
+// truncated anywhere fails the check.
+func validateTgz(data []byte) error {
+	gr, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("gzip: %w", err)
+	}
+	defer gr.Close()
+
+	tr := tar.NewReader(gr)
+	for {
+		if _, err := tr.Next(); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("tar: %w", err)
+		}
+		if _, err := io.Copy(io.Discard, tr); err != nil {
+			return fmt.Errorf("tar entry: %w", err)
+		}
+	}
+	if _, err := io.Copy(io.Discard, gr); err != nil {
+		return fmt.Errorf("gzip: %w", err)
+	}
+	return nil
 }
 
 func httpGet(url string, timeout time.Duration) ([]byte, error) {

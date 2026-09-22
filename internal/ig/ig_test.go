@@ -21,10 +21,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -361,6 +363,146 @@ func TestFetchPackage_HTTP404_Error(t *testing.T) {
 	_, err := fetchPackage("no@exist", "no", "exist", opts)
 	if err == nil {
 		t.Fatal("expected error for HTTP 404")
+	}
+}
+
+// ─── fetchPackage — cache integrity ───────────────────────────────────────────
+
+func TestValidateTgz(t *testing.T) {
+	valid := buildTestTgz(t, map[string][]byte{
+		"package/package.json": mustJSON(map[string]any{"name": "pkg", "version": "1.0.0"}),
+	})
+	cases := []struct {
+		name    string
+		data    []byte
+		wantErr bool
+	}{
+		{"valid", valid, false},
+		{"empty", nil, true},
+		{"garbage", []byte("this is not a gzip stream"), true},
+		{"truncated", valid[:len(valid)/2], true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateTgz(tc.data)
+			if tc.wantErr && err == nil {
+				t.Fatal("invalid package accepted")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("valid package rejected: %v", err)
+			}
+		})
+	}
+}
+
+func TestFetchPackage_CorruptCacheIsRepaired(t *testing.T) {
+	cacheDir := t.TempDir()
+	tgz := buildTestTgz(t, map[string][]byte{
+		"package/package.json": mustJSON(map[string]any{"name": "pkg", "version": "1.0.0"}),
+	})
+	cachePath := filepath.Join(cacheDir, "pkg-1.0.0.tgz")
+	if err := os.WriteFile(cachePath, tgz[:len(tgz)/2], 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write(tgz)
+	}))
+	defer srv.Close()
+
+	opts := LoadOptions{RegistryURL: srv.URL, HTTPTimeout: 5 * time.Second, CacheDir: cacheDir}
+	data, err := fetchPackage("pkg@1.0.0", "pkg", "1.0.0", opts)
+	if err != nil {
+		t.Fatalf("fetchPackage error: %v", err)
+	}
+	if !bytes.Equal(data, tgz) {
+		t.Fatal("corrupt cache should be discarded and re-downloaded")
+	}
+	repaired, err := os.ReadFile(cachePath)
+	if err != nil {
+		t.Fatalf("cache not repaired: %v", err)
+	}
+	if !bytes.Equal(repaired, tgz) {
+		t.Fatal("repaired cache contents mismatch")
+	}
+}
+
+func TestWriteCache_ReplacesFileWithoutLeftovers(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "pkg-1.0.0.tgz")
+	if err := writeCache(path, []byte("first")); err != nil {
+		t.Fatalf("writeCache: %v", err)
+	}
+	if err := writeCache(path, []byte("second")); err != nil {
+		t.Fatalf("writeCache: %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "second" {
+		t.Fatalf("got %q, want %q", got, "second")
+	}
+	leftovers, err := filepath.Glob(filepath.Join(dir, ".fhir-ig-*.tmp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(leftovers) != 0 {
+		t.Fatalf("leftover temp files: %v", leftovers)
+	}
+}
+
+func TestFetchPackage_ConcurrentWriters(t *testing.T) {
+	cacheDir := t.TempDir()
+	tgz := buildTestTgz(t, map[string][]byte{
+		"package/package.json": mustJSON(map[string]any{"name": "pkg", "version": "1.0.0"}),
+	})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write(tgz)
+	}))
+	defer srv.Close()
+
+	opts := LoadOptions{RegistryURL: srv.URL, HTTPTimeout: 5 * time.Second, CacheDir: cacheDir}
+	const writers = 16
+	errs := make([]error, writers)
+	var wg sync.WaitGroup
+	for i := 0; i < writers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			data, err := fetchPackage("pkg@1.0.0", "pkg", "1.0.0", opts)
+			if err != nil {
+				errs[i] = err
+				return
+			}
+			if !bytes.Equal(data, tgz) {
+				errs[i] = fmt.Errorf("writer %d got wrong bytes", i)
+				return
+			}
+			if err := validateTgz(data); err != nil {
+				errs[i] = fmt.Errorf("writer %d got invalid package: %w", i, err)
+			}
+		}(i)
+	}
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("writer %d: %v", i, err)
+		}
+	}
+	cached, err := os.ReadFile(filepath.Join(cacheDir, "pkg-1.0.0.tgz"))
+	if err != nil {
+		t.Fatalf("cache file missing: %v", err)
+	}
+	if err := validateTgz(cached); err != nil {
+		t.Fatalf("final cache is invalid: %v", err)
+	}
+	leftovers, err := filepath.Glob(filepath.Join(cacheDir, ".fhir-ig-*.tmp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(leftovers) != 0 {
+		t.Fatalf("leftover temp files: %v", leftovers)
 	}
 }
 

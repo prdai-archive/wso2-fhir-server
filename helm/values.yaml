@@ -112,7 +112,8 @@ persistence:
   igCache:
     # -- Persist the downloaded Implementation Guide package cache across pod
     # restarts. Safe to leave disabled: packages are simply re-downloaded on
-    # next boot from the configured IG_REGISTRY_URL.
+    # next boot from the configured IG_REGISTRY_URL. Safe to share across
+    # replicas (cache writes are atomic and a corrupt entry is re-downloaded).
     enabled: false
     size: 1Gi
     storageClassName: ""
