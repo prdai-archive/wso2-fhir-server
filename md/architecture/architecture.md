@@ -19,6 +19,7 @@ This page covers the components a request passes through, how they share one sto
 - Terminology-backed search (`:in`, `:below`, and related modifiers) through an external terminology server.
 - Patient, Encounter, and Practitioner compartment search and `$everything`.
 - Single-tenant and shared multi-tenant deployment models.
+- Cross-replica consistency for search-parameter definitions: a change on one replica is propagated to the others so their write-time indexing agrees.
 - JSON, XML, and Turtle representations negotiated per request.
 
 See [supported resource types](../conformance/resource-types.md) for what you can store and the [FHIR API reference](../api/interactions.md) for how to call it.
@@ -52,6 +53,12 @@ search modifiers. Neither is required for the server to run.
 All resource types share one storage model: resources are stored as JSON documents with their full version history, and the values used by search are extracted into typed indexes at write time. A write and its history snapshot and search-index updates commit in a single database transaction, so a resource is never searchable in a state that was not stored.
 
 Searches run against the typed indexes first and load the matching JSON documents last, which keeps queries predictable as data grows. [Storage](./storage.md) covers this model in more depth.
+
+The set of search parameters is held in each process, so a multi-replica deployment keeps them in
+sync over PostgreSQL `LISTEN/NOTIFY`: when a replica adds or changes a search parameter, the others
+reload it rather than staying stale until a restart. This is off by default; enable it for
+multi-replica deployments with `SEARCH_PARAM_WATCH=true` — see
+[Configuration](../administration/configuration.md#search-parameter-registry).
 
 ## What stays outside
 

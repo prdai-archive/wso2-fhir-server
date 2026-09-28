@@ -195,6 +195,15 @@ resource only becomes findable through the new parameter once it is rewritten â€
 no-op `PUT` of its current content. Plan that pass before exposing the parameter to clients.
 :::
 
+:::note
+With multiple replicas, a `SearchParameter` created on one is propagated to the others (over
+PostgreSQL `LISTEN/NOTIFY`), so they index new writes against it too. Convergence is eventual and
+has no fixed lag bound; it does not change the no-backfill behavior above. Propagation is off by
+default;
+enable it with `SEARCH_PARAM_WATCH=true` when running multiple replicas â€” see
+[Configuration](../administration/configuration.md#search-parameter-registry).
+:::
+
 ## Verify on your server
 
 ```bash title="Request"

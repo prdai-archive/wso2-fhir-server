@@ -18,7 +18,8 @@ The server ships as a Go binary and container image. A production deployment als
 7. Put TLS and authenticated authorization enforcement in front of the service.
 8. Configure liveness (`/health/live`) and readiness (`/health/ready`) probes separately.
 9. Establish backup, restore, retention, and disaster-recovery procedures.
-10. Run smoke, search, tenancy, and restore tests before accepting traffic.
+10. For multi-replica deployments, set `SEARCH_PARAM_WATCH=true` so search-parameter changes reach every replica.
+11. Run smoke, search, tenancy, and restore tests before accepting traffic.
 
 ## Container
 
@@ -67,6 +68,18 @@ database result is independent of the HTTP result, so the transaction may have c
 the connection closed. Reconcile resource state before retrying — an unconditional retry may
 apply the bundle twice.
 :::
+
+## Multiple replicas
+
+Search-parameter definitions live in each process. Enable `SEARCH_PARAM_WATCH` (off by default) when
+running more than one replica: the replicas then keep those definitions in sync over PostgreSQL
+`LISTEN/NOTIFY`, so a `SearchParameter` created on one replica reaches the others and keeps their
+write-time search indexing consistent. A single-node deployment needs no setting change.
+
+Propagation is best-effort and eventual — a replica learns of a change when it receives the
+notification or reconnects, with no fixed lag bound — but it does not backfill resources already
+written without the new parameter. See
+[Custom search parameters](../api/search.md#custom-search-parameters).
 
 ## After bulk loading
 

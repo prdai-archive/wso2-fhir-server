@@ -12,7 +12,7 @@ cannot serve it yet.
 | Endpoint | Question it answers | Use it for |
 | --- | --- | --- |
 | `/health/live` | Is the process up and serving HTTP? | Liveness probe — restart the container when this fails |
-| `/health/ready` | Has startup work finished, so FHIR traffic can be served? | Readiness probe — add or remove the instance from the load balancer |
+| `/health/ready` | Has startup work finished and is PostgreSQL reachable, so FHIR traffic can be served? | Readiness probe — add or remove the instance from the load balancer |
 
 Both are outside the FHIR base path, so they need no FHIR content type and are unaffected by
 tenancy.
@@ -43,15 +43,14 @@ Content-Length: 0
 
 Readiness turns `200` only once startup work has completed — including
 [Implementation Guide](../conformance/implementation-guides.md) package loading, which runs in the
-background. On a deployment that loads large packages, expect a window where liveness already
-returns `200` while readiness is still `503`. That is the intended behaviour: the process is alive
-but must not receive traffic yet.
+background — **and** PostgreSQL is reachable. On a deployment that loads large packages, expect a
+window where liveness already returns `200` while readiness is still `503`. That is the intended
+behaviour: the process is alive but must not receive traffic yet.
 
-:::warning
-Readiness does **not** probe PostgreSQL or the terminology server on each call. A `200` means
-startup finished, not that every dependency is currently healthy. Monitor database and terminology
-availability separately — see [Observability](./observability.md).
-:::
+Each call pings PostgreSQL with a 2-second timeout and uses the result directly, so an unreachable
+database drops the instance from the load balancer on the next probe and recovery is visible just as
+quickly. Readiness does **not** probe the terminology server; monitor that separately — see
+[Observability](./observability.md).
 
 ## Wiring probes in Kubernetes
 
