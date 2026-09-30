@@ -125,8 +125,10 @@ func NewRouter(s StoreAPI, pool *pgxpool.Pool, registry *searchparam.Registry, b
 
 			// System-level operations
 			r.Post("/$validate", h.validateSystem) // POST [base]/$validate
-			r.Post("/$convert", h.convert)         // POST [base]/$convert
-			r.Get("/$meta", h.metaSystem)          // GET  [base]/$meta
+			r.Post("/$reindex", h.startReindex)
+			r.Get("/_operations/reindex/{jobId}", h.reindexStatus)
+			r.Post("/$convert", h.convert) // POST [base]/$convert
+			r.Get("/$meta", h.metaSystem)  // GET  [base]/$meta
 
 			// System-level transaction / batch Bundle (trailing-slash form)
 			r.Post("/", h.bundle)
