@@ -160,10 +160,6 @@ This operation uses the existing search extractor and its supported FHIRPath sub
 not extend expression support. The server starts jobs only when you call `$reindex`; registering a
 search parameter does not start one.
 
-The background job and polling API follow the approach described by
-[Azure FHIR](https://learn.microsoft.com/en-us/azure/healthcare-apis/fhir/how-to-run-a-reindex) and
-[Oracle HDR](https://docs.oracle.com/en/industries/health-sciences/healthcare-data-repository/8.2/fhir-guide/reindex-operation.html).
-
 ## $validate
 
 Validate a resource without storing it.
