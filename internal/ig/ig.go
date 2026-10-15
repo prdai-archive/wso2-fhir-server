@@ -69,7 +69,7 @@ type PackageResult struct {
 	Name          string
 	Version       string
 	FHIRVersion   string
-	SearchParams  int // new rows inserted
+	SearchParams  int // definitions inserted or refreshed
 	Profiles      int // profiles registered
 	AlreadyLoaded bool
 }
@@ -169,7 +169,11 @@ func LoadPackage(
 				INSERT INTO search_param_definitions
 					(resource_type, param_name, param_type, fhirpath_expr, is_custom, ig_source, target_types)
 				VALUES ($1, $2, $3, $4, FALSE, $5, $6)
-				ON CONFLICT (resource_type, param_name) DO NOTHING`,
+				ON CONFLICT (resource_type, param_name) DO UPDATE
+				SET param_type = EXCLUDED.param_type,
+				    fhirpath_expr = EXCLUDED.fhirpath_expr,
+				    target_types = EXCLUDED.target_types
+				WHERE search_param_definitions.ig_source = EXCLUDED.ig_source`,
 				baseRes, sp.Code, sp.Type, sp.Expression, source, targetTypes,
 			)
 			if err != nil {
