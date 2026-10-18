@@ -158,7 +158,6 @@ func LoadPackage(
 
 	// Persist SearchParameters. Registry updates are deferred until the commit
 	// so a rolled-back transaction cannot leave the registry ahead of the DB.
-	var defs []searchparam.Definition
 	for _, sp := range pkg.SearchParams {
 		for _, baseRes := range sp.Base {
 			if baseRes == "" {
@@ -177,19 +176,51 @@ func LoadPackage(
 			}
 			if tag.RowsAffected() > 0 {
 				result.SearchParams++
-				if registry != nil {
-					defs = append(defs, searchparam.Definition{
-						ResourceType: baseRes,
-						ParamName:    sp.Code,
-						ParamType:    sp.Type,
-						FHIRPath:     sp.Expression,
-						IsCustom:     false,
-						IGSource:     source,
-						Targets:      sp.Target,
-					})
-				}
 			}
 		}
+	}
+
+	var defs []searchparam.Definition
+	if registry != nil {
+		rows, err := tx.Query(ctx, `
+			SELECT resource_type, param_name, param_type, fhirpath_expr,
+			       is_custom, ig_source, COALESCE(target_types, ''),
+			       COALESCE(components_json, '')
+			FROM search_param_definitions
+			WHERE ig_source = $1
+			ORDER BY resource_type, param_name`, source)
+		if err != nil {
+			return nil, fmt.Errorf("select search_param_definitions for %s: %w", source, err)
+		}
+		for rows.Next() {
+			var d searchparam.Definition
+			var targetTypes, componentsJSON string
+			if err := rows.Scan(
+				&d.ResourceType,
+				&d.ParamName,
+				&d.ParamType,
+				&d.FHIRPath,
+				&d.IsCustom,
+				&d.IGSource,
+				&targetTypes,
+				&componentsJSON,
+			); err != nil {
+				rows.Close()
+				return nil, fmt.Errorf("scan search_param_definitions for %s: %w", source, err)
+			}
+			if targetTypes != "" {
+				d.Targets = strings.Split(targetTypes, "|")
+			}
+			if componentsJSON != "" {
+				_ = json.Unmarshal([]byte(componentsJSON), &d.Components)
+			}
+			defs = append(defs, d)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("iterate search_param_definitions for %s: %w", source, err)
+		}
+		rows.Close()
 	}
 
 	// Persist StructureDefinition profiles (with full SD JSON for validation).
